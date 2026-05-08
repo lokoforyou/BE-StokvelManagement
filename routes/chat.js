@@ -23,22 +23,19 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         if (!process.env.OPENROUTER_API_KEY) {
             throw new Error("OpenRouter API Key is missing. Please check your .env file.");
         }
-        // 1. Gather context for the AI
-        const user = await new Promise((resolve) => {
-            db.get('SELECT u.*, gm.groupId, gm.role FROM users u LEFT JOIN group_members gm ON u.id = gm.userId WHERE u.id = ?', [req.user.id], (err, row) => resolve(row));
-        });
-
+        
+        // 1. Gather context for the AI using Postgres async/await
+        const userRes = await db.query('SELECT u.*, gm."groupId", gm.role FROM users u LEFT JOIN group_members gm ON u.id = gm."userId" WHERE u.id = $1', [req.user.id]);
+        const user = userRes.rows[0];
         if (!user) return res.status(404).json({ error: "User not found" });
 
-        const payments = await new Promise((resolve) => {
-            db.all('SELECT * FROM payments WHERE userId = ? ORDER BY date DESC LIMIT 5', [req.user.id], (err, rows) => resolve(rows || []));
-        });
+        const payRes = await db.query('SELECT * FROM payments WHERE "userId" = $1 ORDER BY date DESC LIMIT 5', [req.user.id]);
+        const payments = payRes.rows;
 
         let groupContext = "";
         if (user.groupId) {
-            const group = await new Promise((resolve) => {
-                db.get('SELECT * FROM stokvel_groups WHERE id = ?', [user.groupId], (err, row) => resolve(row));
-            });
+            const groupRes = await db.query('SELECT * FROM stokvel_groups WHERE id = $1', [user.groupId]);
+            const group = groupRes.rows[0];
             if (group) {
                 groupContext = `Member of group: ${group.name}. Group Balance: R${group.groupBalance}. Group Targets: Monthly R${group.monthlyTarget}, Yearly R${group.yearlyTarget}.`;
             }
