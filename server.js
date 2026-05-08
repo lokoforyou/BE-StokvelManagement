@@ -17,7 +17,11 @@ global.SECRET_KEY = SECRET_KEY;
 global.bcrypt = bcrypt;
 global.jwt = jwt;
 
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(bodyParser.json());
 
 // Initialize SQLite database
