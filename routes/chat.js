@@ -36,8 +36,22 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         if (user.groupId) {
             const groupRes = await db.query('SELECT * FROM stokvel_groups WHERE id = $1', [user.groupId]);
             const group = groupRes.rows[0];
+            
+            const countRes = await db.query('SELECT COUNT(*) as count FROM group_members WHERE "groupId" = $1', [user.groupId]);
+            const memberCount = countRes.rows[0].count;
+
             if (group) {
-                groupContext = `Member of group: ${group.name}. Group Balance: R${group.groupBalance}. Group Targets: Monthly R${group.monthlyTarget}, Yearly R${group.yearlyTarget}.`;
+                groupContext = `Member of group: ${group.name}. Total Members: ${memberCount}. Group Balance: R${group.groupBalance}. Group Targets: Monthly R${group.monthlyTarget}, Yearly R${group.yearlyTarget}.`;
+                
+                // If user is Admin, add summary of other members' payments
+                if (user.role === 'Admin') {
+                    const allPaymentsRes = await db.query(
+                        'SELECT u.name, p.amount, p.date, p.status FROM payments p JOIN users u ON p."userId" = u.id WHERE p."groupId" = $1 ORDER BY p.date DESC LIMIT 20',
+                        [user.groupId]
+                    );
+                    const groupPayments = allPaymentsRes.rows;
+                    groupContext += `\nGroup Payment History (Admin Only View): ${groupPayments.map(p => `${p.name}: R${p.amount} on ${p.date} (${p.status})`).join('; ')}`;
+                }
             }
         }
 
@@ -47,13 +61,14 @@ Context:
 - User Role: ${user.role || 'Member'}
 - User Monthly Contribution: R${user.monthlyContribution}
 - User Targets: Monthly R${user.monthlyTarget}, Yearly R${user.yearlyTarget}
-- Recent Payments: ${payments.map(p => `R${p.amount} on ${p.date} (${p.status})`).join(', ')}
+- Your Recent Payments: ${payments.map(p => `R${p.amount} on ${p.date} (${p.status})`).join(', ')}
 - ${groupContext}
 
 Guidelines:
 - BE EXTREMELY CONCISE. Give short, direct answers.
 - Use a professional but helpful tone.
 - Answer the specific question asked immediately.
+- SECURITY: Only share individual payment details of OTHER members if the user's role is "Admin". If a regular member asks about someone else, politely decline.
 - ALWAYS end your response by asking if the user wants different information, more details on the topic, or something related.
 - Never give professional financial or legal advice.`;
 
