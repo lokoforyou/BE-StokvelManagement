@@ -24,7 +24,7 @@ app.get('/api/members/me', authenticateToken, async (req, res) => {
             monthlyVerified: calcM(userPayments)
         };
 
-        const memberData = { id: user.id, fullName: user.name, email: user.email, phone: user.phone, idNumber: user.idNumber, monthlyContribution: user.monthlyContribution, monthlyTarget: user.monthlyTarget, yearlyTarget: user.yearlyTarget, groupId: user.groupId, role: user.role, createdAt: user.createdAt };
+        const memberData = { id: user.id, fullName: user.name, email: user.email, phone: user.phone, idNumber: user.idNumber, monthlyContribution: user.monthlyContribution, monthlyTarget: user.monthlyTarget, yearlyTarget: user.yearlyTarget, groupId: user.groupId, role: user.role, isSuperAdmin: !!user.isSuperAdmin, createdAt: user.createdAt };
 
         if (user.groupId) {
             const groupRes = await db.query('SELECT * FROM stokvel_groups WHERE id = $1', [user.groupId]);
@@ -48,25 +48,8 @@ app.put('/api/members/me', authenticateToken, async (req, res) => {
         await db.query('UPDATE users SET name = $1, phone = $2, "idNumber" = $3, "monthlyContribution" = $4, "monthlyTarget" = $5, "yearlyTarget" = $6 WHERE id = $7', [fullName, phone, idNumber, monthlyContribution, monthlyTarget, yearlyTarget, req.user.id]);
         const userRes = await db.query('SELECT u.*, gm."groupId", gm.role FROM users u LEFT JOIN group_members gm ON u.id = gm."userId" WHERE u.id = $1', [req.user.id]);
         const user = userRes.rows[0];
-        res.json({ 
-            member: { 
-                id: user.id, 
-                fullName: user.name, 
-                email: user.email, 
-                phone: user.phone, 
-                idNumber: user.idNumber, 
-                monthlyContribution: user.monthlyContribution, 
-                monthlyTarget: user.monthlyTarget, 
-                yearlyTarget: user.yearlyTarget, 
-                groupId: user.groupId, 
-                role: user.role, 
-                createdAt: user.createdAt 
-            } 
-        });
-    } catch (err) { 
-        console.error("Update Member Error:", err);
-        res.status(500).json({ error: "Update error" }); 
-    }
+        res.json({ member: { id: user.id, fullName: user.name, email: user.email, phone: user.phone, idNumber: user.idNumber, monthlyContribution: user.monthlyContribution, monthlyTarget: user.monthlyTarget, yearlyTarget: user.yearlyTarget, groupId: user.groupId, role: user.role, createdAt: user.createdAt } });
+    } catch (err) { res.status(500).json({ error: "Update error" }); }
 });
 
 // Group Management Routes
@@ -82,44 +65,49 @@ app.get('/api/groups', authenticateToken, async (req, res) => {
 app.post('/api/groups/create', authenticateToken, async (req, res) => {
     const { name, description, monthlyTarget, yearlyTarget } = req.body;
     try {
-        // 1. Leave current group
         await db.query('DELETE FROM group_members WHERE "userId" = $1', [req.user.id]);
-        
-        // 2. Create new group
-        const groupRes = await db.query(
-            'INSERT INTO stokvel_groups (name, description, "monthlyTarget", "yearlyTarget") VALUES ($1, $2, $3, $4) RETURNING id',
-            [name, description, monthlyTarget || 0, yearlyTarget || 0]
-        );
+        const groupRes = await db.query('INSERT INTO stokvel_groups (name, description, "monthlyTarget", "yearlyTarget") VALUES ($1, $2, $3, $4) RETURNING id', [name, description, monthlyTarget || 0, yearlyTarget || 0]);
         const groupId = groupRes.rows[0].id;
-
-        // 3. Join as Admin
-        await db.query(
-            'INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)',
-            [groupId, req.user.id, 'Admin']
-        );
-
+        await db.query('INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)', [groupId, req.user.id, 'Admin']);
         res.json({ success: true, groupId });
-    } catch (err) {
-        console.error("Create Group Error:", err);
-        res.status(500).json({ error: "Error creating group" });
-    }
+    } catch (err) { res.status(500).json({ error: "Error creating group" }); }
 });
 
 app.post('/api/groups/join', authenticateToken, async (req, res) => {
     const { groupId } = req.body;
     try {
-        // 1. Leave current group
         await db.query('DELETE FROM group_members WHERE "userId" = $1', [req.user.id]);
-        
-        // 2. Join new group
-        await db.query(
-            'INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)',
-            [groupId, req.user.id, 'Member']
-        );
-
+        await db.query('INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)', [groupId, req.user.id, 'Member']);
         res.json({ success: true });
-    } catch (err) {
-        console.error("Join Group Error:", err);
-        res.status(500).json({ error: "Error joining group" });
-    }
+    } catch (err) { res.status(500).json({ error: "Error joining group" }); }
+});
+
+// Admin & Role Management
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+    try {
+        const adminCheck = await db.query('SELECT "isSuperAdmin" FROM users WHERE id = $1', [req.user.id]);
+        if (!adminCheck.rows[0]?.isSuperAdmin) return res.status(403).json({ error: "Super Admin only" });
+        const result = await db.query(`SELECT u.id, u.name, u.email, u."isSuperAdmin", gm."groupId", gm.role, g.name as "groupName" FROM users u LEFT JOIN group_members gm ON u.id = gm."userId" LEFT JOIN stokvel_groups g ON gm."groupId" = g.id ORDER BY u.name ASC`);
+        res.json({ users: result.rows });
+    } catch (err) { res.status(500).json({ error: "Error fetching user list" }); }
+});
+
+app.post('/api/admin/users/:userId/role', authenticateToken, async (req, res) => {
+    const { role, groupId } = req.body;
+    try {
+        const adminCheck = await db.query('SELECT "isSuperAdmin" FROM users WHERE id = $1', [req.user.id]);
+        if (!adminCheck.rows[0]?.isSuperAdmin) return res.status(403).json({ error: "Super Admin only" });
+        await db.query('INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3) ON CONFLICT ("groupId", "userId") DO UPDATE SET role = EXCLUDED.role', [groupId, req.params.userId, role]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Error updating role" }); }
+});
+
+app.post('/api/groups/:groupId/members/:userId/role', authenticateToken, async (req, res) => {
+    const { role } = req.body;
+    try {
+        const check = await db.query(`SELECT gm.role, u."isSuperAdmin" FROM users u LEFT JOIN group_members gm ON u.id = gm."userId" AND gm."groupId" = $1 WHERE u.id = $2`, [req.params.groupId, req.user.id]);
+        if (!check.rows[0]?.isSuperAdmin && check.rows[0]?.role !== 'Admin') return res.status(403).json({ error: "Group Admin or Super Admin only" });
+        await db.query('UPDATE group_members SET role = $1 WHERE "groupId" = $2 AND "userId" = $3', [role, req.params.groupId, req.params.userId]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Error updating group role" }); }
 });

@@ -2,14 +2,14 @@
 
 A professional, scalable Node.js backend for managing Stokvel groups, contributions, and member interactions. Featuring "Stokvel Buddy" — an AI-powered financial assistant.
 
-## 🚀 Features
+##  Features
 - **Group Management**: Create, join, and manage Stokvel groups.
 - **Payment Tracking**: Record EFT, Cash, or Direct Pay contributions with proof-of-payment uploads.
 - **Admin Controls**: Verify payments and monitor group health.
 - **AI Assistant**: "Stokvel Buddy" integrated via OpenRouter (GPT-4) to answer queries about balances, targets, and group stats.
 - **Managed Cloud Architecture**: Optimized for Google Cloud Run and Cloud SQL (PostgreSQL).
 
-## 🛠 Tech Stack
+## Tech Stack
 - **Runtime**: Node.js 20+
 - **Framework**: Express.js
 - **Database**: PostgreSQL (Cloud SQL)
@@ -17,7 +17,7 @@ A professional, scalable Node.js backend for managing Stokvel groups, contributi
 - **Authentication**: JWT (JSON Web Tokens)
 - **File Handling**: Multer (for payment receipts)
 
-## ⚙️ Local Setup
+## Local Setup
 
 1. **Clone the repository**:
    ```bash
@@ -44,11 +44,12 @@ A professional, scalable Node.js backend for managing Stokvel groups, contributi
    npm start
    ```
 
-## ☁️ Google Cloud Deployment
+## Google Cloud Deployment
 
-This project is designed to be deployed using **Cloud Build** and **Cloud Run**.
+This project is deployed using **Cloud Build** and **Cloud Run**.
 
 ### Infrastructure Setup
+   NB: ONLY IF YOU WILL BE USING THE GOOGLE INFRA FOR HOSTING 
 1. **Create Cloud SQL Instance**:
    ```bash
    gcloud sql instances create stokvel-db --database-version=POSTGRES_15 --tier=db-f1-micro --region=us-central1
@@ -66,13 +67,13 @@ This project is designed to be deployed using **Cloud Build** and **Cloud Run**.
      --allow-unauthenticated
    ```
 
-## 🧪 Database Seeding
+## Database Seeding
 To populate the database with test users and 18 months of historical payment data:
 1. Open Google Cloud Shell.
 2. Run the proxy: `./cloud-sql-proxy PROJECT_ID:REGION:stokvel-db`.
 3. In a new tab, run: `node seed-postgres.js`.
 
-## 🔒 Security
+## Security
 - All sensitive keys are managed via environment variables.
 - CORS is configured to allow secure communication with the Firebase frontend.
 - Individual payment data is strictly protected; AI only shares specific member data with group Admins.
