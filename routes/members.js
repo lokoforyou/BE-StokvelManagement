@@ -111,3 +111,20 @@ app.post('/api/groups/:groupId/members/:userId/role', authenticateToken, async (
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: "Error updating group role" }); }
 });
+
+// Group Admin: Update Group Settings
+app.put('/api/groups/:groupId', authenticateToken, async (req, res) => {
+    const { description, monthlyTarget, yearlyTarget } = req.body;
+    try {
+        const check = await db.query(`SELECT gm.role, u."isSuperAdmin" FROM users u LEFT JOIN group_members gm ON u.id = gm."userId" AND gm."groupId" = $1 WHERE u.id = $2`, [req.params.groupId, req.user.id]);
+        if (!check.rows[0]?.isSuperAdmin && check.rows[0]?.role !== 'Admin') return res.status(403).json({ error: "Group Admin or Super Admin only" });
+
+        await db.query(
+            'UPDATE stokvel_groups SET description = $1, "monthlyTarget" = $2, "yearlyTarget" = $3 WHERE id = $4',
+            [description, monthlyTarget, yearlyTarget, req.params.groupId]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: "Error updating group settings" });
+    }
+});
