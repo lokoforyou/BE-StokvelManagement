@@ -54,13 +54,17 @@ async function initDb() {
         console.log('Database initialized.');
     } catch (err) { console.error('DB Init Error:', err); }
 }
-initDb();
+async function startServer() {
+    await initDb();
 
-require('./routes/auth');
-require('./routes/members');
-require('./routes/payments');
-require('./routes/notifications');
-require('./routes/chat');
-require('./routes/dashboard');
+    require('./routes/auth');
+    require('./routes/members');
+    require('./routes/payments');
+    require('./routes/notifications');
+    require('./routes/chat');
+    require('./routes/dashboard');
 
-app.listen(PORT, () => { console.log('Backend running on port ' + PORT); });
+    app.listen(PORT, () => { console.log('Backend running on port ' + PORT); });
+}
+
+startServer();

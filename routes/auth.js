@@ -21,7 +21,7 @@ app.post('/api/auth/signup', async (req, res) => {
     } catch (err) {
         if (err.code === '23505') return res.status(400).json({ error: "Email already exists" });
         console.error("Signup Error:", err);
-        res.status(500).json({ error: "Signup error" });
+        res.status(500).json({ error: "Signup error", details: err.message });
     }
 });
 
@@ -59,6 +59,6 @@ app.post('/api/auth/login', async (req, res) => {
         });
     } catch (err) { 
         console.error("Login Error:", err);
-        res.status(500).json({ error: "Login error" }); 
+        res.status(500).json({ error: "Login error", details: err.message }); 
     }
 });
