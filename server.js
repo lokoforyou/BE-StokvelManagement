@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 const SECRET_KEY = process.env.JWT_SECRET || 'lokoforyou-super-secret-key';
 
 const db = new Pool({
