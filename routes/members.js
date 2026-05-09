@@ -68,3 +68,58 @@ app.put('/api/members/me', authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Update error" }); 
     }
 });
+
+// Group Management Routes
+app.get('/api/groups', authenticateToken, async (req, res) => {
+    try {
+        const result = await db.query('SELECT id, name, description FROM stokvel_groups ORDER BY name ASC');
+        res.json({ groups: result.rows });
+    } catch (err) {
+        res.status(500).json({ error: "Error fetching groups" });
+    }
+});
+
+app.post('/api/groups/create', authenticateToken, async (req, res) => {
+    const { name, description, monthlyTarget, yearlyTarget } = req.body;
+    try {
+        // 1. Leave current group
+        await db.query('DELETE FROM group_members WHERE "userId" = $1', [req.user.id]);
+        
+        // 2. Create new group
+        const groupRes = await db.query(
+            'INSERT INTO stokvel_groups (name, description, "monthlyTarget", "yearlyTarget") VALUES ($1, $2, $3, $4) RETURNING id',
+            [name, description, monthlyTarget || 0, yearlyTarget || 0]
+        );
+        const groupId = groupRes.rows[0].id;
+
+        // 3. Join as Admin
+        await db.query(
+            'INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)',
+            [groupId, req.user.id, 'Admin']
+        );
+
+        res.json({ success: true, groupId });
+    } catch (err) {
+        console.error("Create Group Error:", err);
+        res.status(500).json({ error: "Error creating group" });
+    }
+});
+
+app.post('/api/groups/join', authenticateToken, async (req, res) => {
+    const { groupId } = req.body;
+    try {
+        // 1. Leave current group
+        await db.query('DELETE FROM group_members WHERE "userId" = $1', [req.user.id]);
+        
+        // 2. Join new group
+        await db.query(
+            'INSERT INTO group_members ("groupId", "userId", role) VALUES ($1, $2, $3)',
+            [groupId, req.user.id, 'Member']
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Join Group Error:", err);
+        res.status(500).json({ error: "Error joining group" });
+    }
+});
