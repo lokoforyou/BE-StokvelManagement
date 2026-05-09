@@ -73,11 +73,15 @@ Guidelines:
         res.json({ reply });
 
     } catch (error) {
-        console.error("Chat Error:", error);
+        console.error("Detailed Chat Error:", {
+            message: error.message,
+            stack: error.stack,
+            type: error.constructor.name,
+            details: error
+        });
         res.status(500).json({ 
-            error: "DEBUG: This is the updated error message.",
-            details: error.message,
-            stack: error.stack
+            error: "AI service unavailable",
+            details: error.message
         });
     }
 });
