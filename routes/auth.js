@@ -54,6 +54,7 @@ app.post('/api/auth/login', async (req, res) => {
                 monthlyContribution: user.monthlyContribution, 
                 groupId: user.groupId, 
                 role: user.role, 
+                isSuperAdmin: Boolean(user.isSuperAdmin),
                 createdAt: user.createdAt 
             } 
         });
