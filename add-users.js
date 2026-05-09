@@ -20,11 +20,16 @@ async function bulkSeed() {
         ];
 
         for (let g of groups) {
-            const res = await db.query(
-                'INSERT INTO stokvel_groups (name, description, "monthlyTarget", "yearlyTarget") VALUES ($1, $2, $3, $4) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
-                [g.name, `Test ${g.name}`, 5000, 60000]
-            );
-            g.id = res.rows[0].id;
+            let res = await db.query('SELECT id FROM stokvel_groups WHERE name = $1', [g.name]);
+            if (res.rows.length > 0) {
+                g.id = res.rows[0].id;
+            } else {
+                res = await db.query(
+                    'INSERT INTO stokvel_groups (name, description, "monthlyTarget", "yearlyTarget") VALUES ($1, $2, $3, $4) RETURNING id',
+                    [g.name, `Test ${g.name}`, 5000, 60000]
+                );
+                g.id = res.rows[0].id;
+            }
         }
 
         // 2. Generate Users
