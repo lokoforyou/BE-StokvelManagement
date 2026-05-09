@@ -102,6 +102,16 @@ app.post('/api/admin/users/:userId/role', authenticateToken, async (req, res) =>
     } catch (err) { res.status(500).json({ error: "Error updating role" }); }
 });
 
+app.put('/api/admin/users/:userId/email', authenticateToken, async (req, res) => {
+    const { email } = req.body;
+    try {
+        const adminCheck = await db.query('SELECT "isSuperAdmin" FROM users WHERE id = $1', [req.user.id]);
+        if (!adminCheck.rows[0]?.isSuperAdmin) return res.status(403).json({ error: "Super Admin only" });
+        await db.query('UPDATE users SET email = $1 WHERE id = $2', [email, req.params.userId]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: "Error updating email" }); }
+});
+
 app.post('/api/groups/:groupId/members/:userId/role', authenticateToken, async (req, res) => {
     const { role } = req.body;
     try {
